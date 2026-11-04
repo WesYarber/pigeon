@@ -1,0 +1,3 @@
+// Shared settings. Your Apple developer team goes in Local.xcconfig (gitignored):
+//   DEVELOPMENT_TEAM = ABCDE12345
+#include? "Local.xcconfig"

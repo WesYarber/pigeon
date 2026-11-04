@@ -1,0 +1,14 @@
+services:
+  pigeon:
+    build: .
+    restart: unless-stopped
+    environment:
+      RELAY_ADMIN_SECRET: ${RELAY_ADMIN_SECRET:?set it in .env}
+      RELAY_MAX_MB: "100"
+      RELAY_TTL_HOURS: "72"
+    volumes:
+      - pigeon-data:/data
+    ports:
+      - "127.0.0.1:8787:8787"   # only your reverse proxy should reach this
+volumes:
+  pigeon-data:
