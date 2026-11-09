@@ -104,6 +104,9 @@ final class Macs: ObservableObject {
         guard let i = list.firstIndex(of: d) else { return }
         list[i].name = name; save()
     }
+    func move(fromOffsets: IndexSet, toOffset: Int) {
+        list.move(fromOffsets: fromOffsets, toOffset: toOffset); save()
+    }
     func makeDefault(_ d: Destination) {
         guard let i = list.firstIndex(of: d) else { return }
         list.insert(list.remove(at: i), at: 0); save()

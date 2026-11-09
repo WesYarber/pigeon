@@ -121,10 +121,9 @@ struct SettingsView: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var macs: Macs
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @State private var deviceName = Settings.deviceName
     @State private var adding = false
-    @State private var renaming: Destination?
-    @State private var newName = ""
 
     init(model: AppModel) {
         self.model = model
@@ -136,32 +135,18 @@ struct SettingsView: View {
             Form {
                 Section {
                     ForEach(macs.list) { d in
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack {
-                                Text(d.name)
-                                if d == macs.list.first, macs.list.count > 1 {
-                                    Text("Default").font(.caption2.weight(.medium))
-                                        .padding(.horizontal, 6).padding(.vertical, 1)
-                                        .background(Capsule().fill(Color.accentColor.opacity(0.18)))
-                                }
-                            }
-                            Text(d.fingerprint).font(.caption.monospaced()).foregroundStyle(.secondary)
-                        }
-                        .swipeActions {
-                            Button("Remove", role: .destructive) { macs.remove(d) }
-                            Button("Rename") { newName = d.name; renaming = d }.tint(.gray)
-                        }
-                        .contextMenu {
-                            if d != macs.list.first { Button("Make Default") { macs.makeDefault(d) } }
-                            Button("Rename") { newName = d.name; renaming = d }
-                            Button("Remove", role: .destructive) { macs.remove(d) }
-                        }
+                        // Tapping opens the Mac's own page (the chevron says so).
+                        NavigationLink(value: d.inbox) { MacRow(mac: d, isDefault: d == macs.list.first && macs.list.count > 1) }
+                            .swipeActions { Button("Remove", role: .destructive) { macs.remove(d) } }
                     }
+                    .onMove { macs.move(fromOffsets: $0, toOffset: $1) } // touch and hold, then drag
                     Button("Add a Mac") { adding = true }
                 } header: {
                     Text("Your Macs")
                 } footer: {
-                    Text("Swipe or touch and hold a Mac to rename, remove or make it the default.")
+                    Text(macs.list.count > 1
+                         ? "Tap a Mac to rename or remove it. Touch and hold to drag them into order; the top one is your default."
+                         : "Tap a Mac to rename or remove it.")
                 }
                 Section {
                     TextField("iPhone", text: $deviceName)
@@ -174,16 +159,137 @@ struct SettingsView: View {
                 Section {
                     Button("Clear Recent", role: .destructive) { model.log.clear() }
                 }
+                Section {
+                    Button { openURL(Feedback.mailURL) } label: {
+                        Label("Send Feedback", systemImage: "envelope")
+                    }
+                    Link(destination: Feedback.repoURL) {
+                        Label("Pigeon on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                    }
+                    LabeledContent("Version", value: Feedback.version)
+                } header: {
+                    Text("Feedback")
+                } footer: {
+                    Text("Ideas, bugs, anything: email \(Feedback.address).")
+                }
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: String.self) { inbox in MacDetailView(macs: macs, inbox: inbox) }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(isPresented: $adding) { AddMacView(macs: macs) { adding = false } }
-            .alert("Rename", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
-                TextField("Name", text: $newName)
-                Button("Save") { if let d = renaming, !newName.isEmpty { macs.rename(d, to: newName) }; renaming = nil }
-                Button("Cancel", role: .cancel) { renaming = nil }
+        }
+    }
+}
+
+private struct MacRow: View {
+    let mac: Destination
+    let isDefault: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "desktopcomputer").foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(mac.name)
+                    if isDefault {
+                        Text("Default").font(.caption2.weight(.medium))
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(Capsule().fill(Color.accentColor.opacity(0.18)))
+                    }
+                }
+                Text(mac.fingerprint).font(.caption.monospaced()).foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+/// One Mac's page: rename it, check its fingerprint, make it the default, or remove it.
+struct MacDetailView: View {
+    @ObservedObject var macs: Macs
+    let inbox: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var confirmingRemove = false
+
+    private var mac: Destination? { macs.list.first { $0.inbox == inbox } }
+    private var isDefault: Bool { macs.list.first?.inbox == inbox }
+
+    var body: some View {
+        Form {
+            if let mac {
+                Section("Name") {
+                    TextField("Name", text: $name)
+                        .submitLabel(.done)
+                        .onSubmit(save)
+                }
+                Section {
+                    LabeledContent("Fingerprint") { Text(mac.fingerprint).font(.body.monospaced()) }
+                    LabeledContent("Relay", value: mac.server.host ?? mac.server.absoluteString)
+                } footer: {
+                    Text("The fingerprint should match the one under the QR code in this Mac's Pair a Device window.")
+                }
+                if macs.list.count > 1 {
+                    Section {
+                        if isDefault {
+                            Label("This is your default Mac", systemImage: "checkmark.circle.fill").foregroundStyle(.secondary)
+                        } else {
+                            Button("Make Default") { macs.makeDefault(mac) }
+                        }
+                    } footer: {
+                        Text("Your default Mac is the one at the top of the list. The Share sheet and the Send buttons use it unless you pick another.")
+                    }
+                }
+                Section {
+                    Button("Remove This Mac", role: .destructive) { confirmingRemove = true }
+                }
+            }
+        }
+        .navigationTitle(mac?.name ?? "Mac")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { name = mac?.name ?? "" }
+        .onDisappear(perform: save)
+        .confirmationDialog("Remove \(mac?.name ?? "this Mac")?", isPresented: $confirmingRemove, titleVisibility: .visible) {
+            Button("Remove", role: .destructive) {
+                if let mac { macs.remove(mac) }
+                dismiss()
+            }
+        } message: {
+            Text("This iPhone will stop sending to it. You can add it again with its pairing link.")
+        }
+    }
+
+    private func save() {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        if let mac, !trimmed.isEmpty, trimmed != mac.name { macs.rename(mac, to: trimmed) }
+    }
+}
+
+/// Where feedback goes, and a little context that helps with bug reports
+/// (versions and phone model only; nothing personal).
+enum Feedback {
+    static let address = "pigeon@wesyarber.net"
+    static let repoURL = URL(string: "https://github.com/WesYarber/pigeon")!
+
+    static var version: String {
+        let info = Bundle.main.infoDictionary
+        return "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
+    }
+
+    static var model: String {
+        var u = utsname()
+        uname(&u)
+        return withUnsafeBytes(of: &u.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
+    }
+
+    static var mailURL: URL {
+        var c = URLComponents()
+        c.scheme = "mailto"
+        c.path = address
+        c.queryItems = [
+            URLQueryItem(name: "subject", value: "Pigeon feedback"),
+            URLQueryItem(name: "body", value: "\n\n\n—\nPigeon \(version) · iOS \(UIDevice.current.systemVersion) · \(model)"),
+        ]
+        return c.url!
     }
 }

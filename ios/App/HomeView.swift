@@ -9,6 +9,11 @@ struct HomeView: View {
     @State private var pickingFiles = false
     @State private var adding = false
     @State private var showingSettings = false
+    @State private var dropTargeted = false
+
+    /// At or above this width (an unfolded iPhone Duo, an iPad, landscape)
+    /// sending and Recent sit side by side.
+    static let twoPaneWidth: CGFloat = 600
 
     init(model: AppModel) {
         self.model = model
@@ -17,12 +22,18 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            GeometryReader { geo in
                 if model.macs.list.isEmpty {
-                    welcome
+                    List { welcome }
+                } else if geo.size.width >= Self.twoPaneWidth {
+                    twoPane(width: geo.size.width)
                 } else {
-                    sendSection
-                    recentSection
+                    List {
+                        sendSection
+                        recentSection
+                    }
+                    .onDrop(of: [.item], isTargeted: $dropTargeted, perform: sendDropped)
+                    .overlay { if dropTargeted { dropHighlight } }
                 }
             }
             .navigationTitle("Pigeon")
@@ -88,6 +99,101 @@ struct HomeView: View {
             Text("Tip: in other apps, use the Share button and pick Pigeon.")
         }
         .disabled(model.progress != nil)
+    }
+
+    // MARK: Two panes (unfolded)
+
+    private func twoPane(width: CGFloat) -> some View {
+        HStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    targetPicker
+                    HStack(spacing: 12) {
+                        PhotosPicker(selection: $photos, matching: .any(of: [.images, .videos]), preferredItemEncoding: .current) {
+                            tile("Photos & Videos", "photo.on.rectangle")
+                        }
+                        Button { pickingFiles = true } label: { tile("Files", "folder") }
+                    }
+                    .buttonStyle(.plain)
+                    PasteButton(supportedContentTypes: [.url, .plainText, .image]) { providers in
+                        Task { await sendPasted(providers) }
+                    }
+                    .frame(maxWidth: .infinity)
+                    dropZone
+                    if let p = model.progress {
+                        ProgressView(value: p) { Text("Sending \(model.sendingTitle)…").lineLimit(1) }
+                    }
+                    Text("Tip: open Files or Photos next to Pigeon and drag things onto the drop zone, or use any app's Share button.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                .padding(20)
+                .disabled(model.progress != nil)
+            }
+            .frame(width: min(max(width * 0.45, 300), 420))
+            .background(Color(.systemGroupedBackground))
+            Divider()
+            List { recentSection }
+                .listStyle(.insetGrouped) // rounded rows with margins, clear of the divider and the status strip
+        }
+    }
+
+    @ViewBuilder private var targetPicker: some View {
+        if model.macs.list.count > 1 {
+            Picker("Send to", selection: Binding(get: { model.target?.inbox }, set: { model.targetInbox = $0 })) {
+                ForEach(model.macs.list) { Text($0.name).tag(Optional($0.inbox)) }
+            }
+            .pickerStyle(.menu)
+        } else {
+            Label("Sending to \(model.target?.name ?? "")", systemImage: "desktopcomputer")
+                .font(.headline)
+        }
+    }
+
+    private func tile(_ title: String, _ symbol: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: symbol).font(.system(size: 30))
+            Text(title).font(.callout.weight(.medium)).multilineTextAlignment(.center)
+        }
+        .foregroundStyle(.tint)
+        .frame(maxWidth: .infinity, minHeight: 110)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemGroupedBackground)))
+        .contentShape(Rectangle())
+    }
+
+    private var dropZone: some View {
+        VStack(spacing: 8) {
+            Image(systemName: dropTargeted ? "arrow.down.circle.fill" : "tray.and.arrow.down")
+                .font(.system(size: 34))
+            Text(dropTargeted ? "Release to send" : "Drop files, photos or links here")
+                .font(.callout.weight(.medium))
+        }
+        .foregroundStyle(dropTargeted ? Color.accentColor : .secondary)
+        .frame(maxWidth: .infinity, minHeight: 180)
+        .background(RoundedRectangle(cornerRadius: 16)
+            .fill(dropTargeted ? Color.accentColor.opacity(0.12) : Color(.secondarySystemGroupedBackground)))
+        .overlay(RoundedRectangle(cornerRadius: 16)
+            .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [7, 6]))
+            .foregroundStyle(dropTargeted ? Color.accentColor : Color.secondary.opacity(0.4)))
+        .onDrop(of: [.item], isTargeted: $dropTargeted, perform: sendDropped)
+        .animation(.easeOut(duration: 0.15), value: dropTargeted)
+    }
+
+    private var dropHighlight: some View {
+        RoundedRectangle(cornerRadius: 20)
+            .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 3, dash: [8, 6]))
+            .background(RoundedRectangle(cornerRadius: 20).fill(Color.accentColor.opacity(0.08)))
+            .overlay(Label("Release to send", systemImage: "arrow.down.circle.fill").font(.headline).foregroundStyle(.tint))
+            .padding(8)
+            .allowsHitTesting(false)
+    }
+
+    /// Drops from other apps (Files, Photos, Safari side by side) go through the
+    /// same reader as the Share sheet, so names and formats are kept.
+    private func sendDropped(_ providers: [NSItemProvider]) -> Bool {
+        guard model.target != nil else { return false }
+        let scratch = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        Task { model.enqueue(await ItemReader.read(providers, into: scratch)) }
+        return true
     }
 
     private var recentSection: some View {
