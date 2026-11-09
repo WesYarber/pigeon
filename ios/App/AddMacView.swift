@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftUI
 import VisionKit
 
@@ -123,6 +124,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var deviceName = Settings.deviceName
+    @State private var showTip = false
     @State private var adding = false
 
     init(model: AppModel) {
@@ -166,15 +168,23 @@ struct SettingsView: View {
                     Link(destination: Feedback.repoURL) {
                         Label("Pigeon on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
                     }
+                    if showTip {
+                        Link(destination: Feedback.tipURL) {
+                            Label("Leave a Tip", systemImage: "cup.and.saucer")
+                        }
+                    }
                     LabeledContent("Version", value: Feedback.version)
                 } header: {
                     Text("Feedback")
                 } footer: {
-                    Text("Ideas, bugs, anything: email \(Feedback.address).")
+                    Text(showTip
+                         ? "Ideas, bugs, anything: email \(Feedback.address). Pigeon is free; if it saves you time, you can buy me a coffee on Ko-fi."
+                         : "Ideas, bugs, anything: email \(Feedback.address).")
                 }
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .task { showTip = await Feedback.tipLinkAllowed() }
             .navigationDestination(for: String.self) { inbox in MacDetailView(macs: macs, inbox: inbox) }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(isPresented: $adding) { AddMacView(macs: macs) { adding = false } }
@@ -270,6 +280,14 @@ struct MacDetailView: View {
 enum Feedback {
     static let address = "pigeon@wesyarber.net"
     static let repoURL = URL(string: "https://github.com/WesYarber/pigeon")!
+    static let tipURL = URL(string: "https://ko-fi.com/wesyarber")!
+
+    /// The Ko-fi link appears only for the US App Store, where Apple allows
+    /// links to outside payment (guideline 3.1.1(a)). Elsewhere it's hidden:
+    /// no in-app purchases, no tip jar.
+    static func tipLinkAllowed() async -> Bool {
+        await Storefront.current?.countryCode == "USA"
+    }
 
     static var version: String {
         let info = Bundle.main.infoDictionary

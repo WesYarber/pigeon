@@ -1,4 +1,5 @@
 import AppKit
+import StoreKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -473,6 +474,7 @@ private struct Footnote: View {
 
 struct GeneralSettings: View {
     @ObservedObject var app: AppDelegate
+    @State private var showTip = false
 
     var body: some View {
         Form {
@@ -538,6 +540,19 @@ struct GeneralSettings: View {
                 }
                 Footnote("Gets the latest version from the GitHub repo Pigeon was installed from, rebuilds it and restarts Pigeon. Builds are signed with your Apple Development certificate, so updates don't ask for Keychain access again.")
             }
+            Section("About Pigeon") {
+                HStack(spacing: 16) {
+                    Link(destination: About.mailURL) { Label("Send Feedback", systemImage: "envelope") }
+                    Link(destination: About.repoURL) { Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right") }
+                    if showTip {
+                        Link(destination: About.tipURL) { Label("Leave a Tip", systemImage: "cup.and.saucer") }
+                    }
+                }
+                Footnote(showTip
+                         ? "Ideas, bugs, anything: email \(About.address). Pigeon is free; if it saves you time, you can buy me a coffee on Ko-fi."
+                         : "Ideas, bugs, anything: email \(About.address).")
+            }
+            .task { showTip = await About.tipLinkAllowed() }
         }
         .formStyle(.grouped)
     }
@@ -667,5 +682,30 @@ struct SecuritySettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Feedback and tip links (Settings → General → About Pigeon).
+enum About {
+    static let address = "pigeon@wesyarber.net"
+    static let repoURL = URL(string: "https://github.com/WesYarber/pigeon")!
+    static let tipURL = URL(string: "https://ko-fi.com/wesyarber")!
+
+    /// Shown only for the US App Store storefront, where outside payment links
+    /// are allowed; hidden everywhere else (no in-app purchases or tip jar).
+    static func tipLinkAllowed() async -> Bool {
+        await Storefront.current?.countryCode == "USA"
+    }
+
+    static var mailURL: URL {
+        var c = URLComponents()
+        c.scheme = "mailto"
+        c.path = address
+        let v = ProcessInfo.processInfo.operatingSystemVersion
+        c.queryItems = [
+            URLQueryItem(name: "subject", value: "Pigeon feedback"),
+            URLQueryItem(name: "body", value: "\n\n\n—\nPigeon \(Bundle.main.object(forInfoDictionaryKey: "PigeonCommit") as? String ?? "?") · macOS \(v.majorVersion).\(v.minorVersion).\(v.patchVersion)"),
+        ]
+        return c.url!
     }
 }
