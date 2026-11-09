@@ -28,9 +28,14 @@ final class AppModel: ObservableObject {
     /// Where the Send buttons send: the picked Mac, else the default.
     var target: Destination? { macs.list.first { $0.inbox == targetInbox } ?? macs.list.first }
 
+    private var demoInstalled = false
+
     func becameActive() {
         macs.reload()
         log.reload()
+        #if DEBUG
+        if ScreenshotDemo.isOn, !demoInstalled { demoInstalled = true; ScreenshotDemo.install(macs: macs, log: log) }
+        #endif
         objectWillChange.send()
         // Big files the Share extension couldn't handle wait in the outbox.
         for (job, file) in Outbox.jobs() {

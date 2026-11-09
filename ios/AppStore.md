@@ -78,7 +78,11 @@ The camera is used only to scan a pairing QR code from the Mac app; pasting the 
 
 Contact: pigeon@wesyarber.net
 
-## Screenshots needed
+## Screenshots
 
-* iPhone 6.9" (e.g. iPhone 18 Pro Max): Home with a paired Mac, the Share sheet sending, Settings.
-* iPad 13": the two-pane layout (the app supports iPad).
+Ready in `ios/Screenshots/` at Apple's required sizes:
+
+* iPhone 6.9" (1320 × 2868): `iPhone 6.9 - 1 Home.png`, `iPhone 6.9 - 2 Settings.png`
+* iPad 13" (2064 × 2752): `iPad 13 - 1 Home.png`
+
+To retake them, run a debug build in a simulator with the launch argument `-ScreenshotDemo` (adds two example Macs on relay.example.com and sample Recent items; nothing is sent), plus `-ScreenshotSettings` to open Settings. That code is only in debug builds.

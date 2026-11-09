@@ -55,6 +55,9 @@ struct HomeView: View {
                 Task { await sendPhotos(picked) }
             }
             .overlay(alignment: .bottom) { banner }
+            #if DEBUG
+            .task { if ScreenshotDemo.showSettings { try? await Task.sleep(nanoseconds: 800_000_000); showingSettings = true } }
+            #endif
             .animation(.easeOut(duration: 0.2), value: model.message)
         }
     }
@@ -282,6 +285,11 @@ struct PickedFile: Transferable {
 struct SentRow: View {
     let item: SentItem
 
+    /// Icon and word kept snug together (a Label spreads them apart in a row).
+    private func badge(_ text: String, _ symbol: String) -> some View {
+        HStack(spacing: 3) { Image(systemName: symbol); Text(text) }
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: item.kind == "file" ? "doc.fill" : "text.alignleft")
@@ -301,11 +309,11 @@ struct SentRow: View {
 
     @ViewBuilder private var status: some View {
         if item.delivered != nil {
-            Label("Delivered", systemImage: "checkmark.circle.fill").labelStyle(.titleAndIcon).foregroundStyle(.green)
+            badge("Delivered", "checkmark.circle.fill").foregroundStyle(.green)
         } else if item.undelivered == true {
-            Label("Not delivered", systemImage: "exclamationmark.circle.fill").foregroundStyle(.orange)
+            badge("Not delivered", "exclamationmark.circle.fill").foregroundStyle(.orange)
         } else if item.relayId != nil, Date().timeIntervalSince(item.ts) > 10 {
-            Label("Waiting…", systemImage: "clock")
+            badge("Waiting…", "clock")
         }
     }
 }
