@@ -168,6 +168,9 @@ struct SettingsView: View {
                     Link(destination: Feedback.repoURL) {
                         Label("Pigeon on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
                     }
+                    Link(destination: Feedback.privacyURL) {
+                        Label("Privacy Policy", systemImage: "hand.raised")
+                    }
                     if showTip {
                         Link(destination: Feedback.tipURL) {
                             Label("Leave a Tip", systemImage: "cup.and.saucer")
@@ -281,6 +284,7 @@ enum Feedback {
     static let address = "pigeon@wesyarber.net"
     static let repoURL = URL(string: "https://github.com/WesYarber/pigeon")!
     static let tipURL = URL(string: "https://ko-fi.com/wesyarber")!
+    static let privacyURL = URL(string: "https://github.com/WesYarber/pigeon/blob/main/PRIVACY.md")!
 
     /// The Ko-fi link appears only for the US App Store, where Apple allows
     /// links to outside payment (guideline 3.1.1(a)). Elsewhere it's hidden:

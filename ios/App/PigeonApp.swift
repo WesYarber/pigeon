@@ -59,6 +59,7 @@ final class AppModel: ObservableObject {
             progress = 0
             do {
                 try await Sender.send(item, to: dest, log: log) { p in Task { @MainActor in self.progress = p } }
+                Self.removeTemporaryCopy(of: item)
                 sent += 1
                 objectWillChange.send()
             } catch {
@@ -70,6 +71,17 @@ final class AppModel: ObservableObject {
         onDone = []
         if sent > 0, message == nil { flash(sent == 1 ? "Sent" : "Sent \(sent) items") }
         watchReceipts()
+    }
+
+    /// Picked and pasted files are copied into the temporary folder to be read;
+    /// once sent, the copy shouldn't linger on the phone.
+    private static func removeTemporaryCopy(of item: Outgoing) {
+        guard case .file(let url, _) = item else { return }
+        let tmp = FileManager.default.temporaryDirectory.standardizedFileURL.path
+        guard url.standardizedFileURL.path.hasPrefix(tmp) else { return }
+        let parent = url.deletingLastPathComponent()
+        // Pickers put each copy in its own folder; remove that folder, else just the file.
+        try? FileManager.default.removeItem(at: parent.standardizedFileURL.path == tmp ? url : parent)
     }
 
     func flash(_ text: String) {

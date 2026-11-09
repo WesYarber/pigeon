@@ -81,6 +81,10 @@ swift icons/make_icons.swift icons/out && cp icons/out/web/icon.svg icons/out/we
 
 `python3 tools/make_prompts.py` writes self-contained hand-off files (`server-setup-prompt.md`, `server-update-prompt.md`, `other-mac-setup.md`) for setting up a server or another Mac with an AI agent, and checks every embedded file byte for byte. Put your relay's hostname in `tools/relay-host.txt` first (it's gitignored).
 
+## Privacy
+
+Pigeon collects nothing: no accounts, analytics or tracking, and no developer-run servers. See [PRIVACY.md](PRIVACY.md).
+
 ## License
 
 Copyright © 2026 Wes Yarber. All rights reserved. The source is published so it can be read and audited; it isn't licensed for reuse. See [LICENSE](LICENSE).
