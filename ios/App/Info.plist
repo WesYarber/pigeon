@@ -20,8 +20,6 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Pigeon uses the camera to scan the pairing QR code your Mac shows.</string>
 	<key>UILaunchScreen</key>

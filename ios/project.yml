@@ -40,7 +40,6 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         NSCameraUsageDescription: Pigeon uses the camera to scan the pairing QR code your Mac shows.
-        ITSAppUsesNonExemptEncryption: true   # end-to-end encryption with standard algorithms (CryptoKit): declared in App Store Connect
     entitlements:
       path: App/Pigeon.entitlements
       properties:

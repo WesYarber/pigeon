@@ -56,6 +56,8 @@ First release.
 
 ## Export compliance (asked for each build)
 
+The app's Info.plist deliberately has no `ITSAppUsesNonExemptEncryption` key: declaring `true` there requires an export compliance code that App Store Connect only issues after documentation is approved, so the upload is rejected without one. Instead, answer these questions in App Store Connect when each build arrives (TestFlight → the build → Manage):
+
 * Does your app use encryption? **Yes**
 * Does it qualify for any exemptions in Category 5, Part 2? **No** (it encrypts user data end to end)
 * Does it implement proprietary or non-standard encryption algorithms? **No.** It uses standard algorithms (ECDH P-256, HKDF-SHA256, AES-256-GCM) through Apple's CryptoKit.
