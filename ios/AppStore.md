@@ -84,6 +84,7 @@ Contact: pigeon@wesyarber.net
 
 Ready in `ios/Screenshots/` at Apple's required sizes:
 
+* iPhone 6.3" (1206 × 2622, what App Store Connect asks for now): `iPhone 6.3 - 1 Home.png`, `iPhone 6.3 - 2 Settings.png`
 * iPhone 6.9" (1320 × 2868): `iPhone 6.9 - 1 Home.png`, `iPhone 6.9 - 2 Settings.png`
 * iPad 13" (2064 × 2752): `iPad 13 - 1 Home.png`
 
