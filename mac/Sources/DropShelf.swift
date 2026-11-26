@@ -253,22 +253,19 @@ extension AppDelegate {
     private func sendDroppedData(_ p: NSItemProvider, types: [String], to dest: Destination?, link: URL?) {
         // Types are listed best first, so the first data type is the original
         // (e.g. public.jpeg before any converted public.png/public.tiff).
-        if let t = types.first(where: { id in
-            guard let u = UTType(id), u.conforms(to: .data) else { return false }
-            return !u.conforms(to: .text) && !u.conforms(to: .url)
-        }) {
-            let type = UTType(t)
-            let suggested = p.suggestedName
-            _ = p.loadFileRepresentation(forTypeIdentifier: t) { url, _ in
+        // Text files (.sh, .json, .txt…) count as files too, not clipboard text.
+        let suggested = p.suggestedName
+        if let type = FileKinds.fileType(in: types, named: suggested?.isEmpty == false), !type.conforms(to: .directory) {
+            _ = p.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, _ in
                 guard let url, let data = try? Data(contentsOf: url) else { return }
-                let ext = type?.preferredFilenameExtension ?? url.pathExtension
+                let ext = type.preferredFilenameExtension ?? url.pathExtension
                 var name = suggested ?? url.deletingPathExtension().lastPathComponent
                 if name.isEmpty { name = "file" }
                 if !ext.isEmpty, (name as NSString).pathExtension.lowercased() != ext.lowercased(),
-                   UTType(filenameExtension: (name as NSString).pathExtension)?.conforms(to: type ?? .data) != true {
+                   UTType(filenameExtension: (name as NSString).pathExtension)?.conforms(to: type) != true {
                     name += "." + ext
                 }
-                let mime = type?.preferredMIMEType ?? "application/octet-stream"
+                let mime = type.preferredMIMEType ?? "application/octet-stream"
                 Task { @MainActor in self.send([.data(data, name: name, type: mime)], to: dest) }
             }
         } else if p.canLoadObject(ofClass: String.self) {

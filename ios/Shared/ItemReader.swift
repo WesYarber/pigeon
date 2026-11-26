@@ -21,13 +21,15 @@ enum ItemReader {
 
     private static func read(_ p: NSItemProvider, into scratch: URL) async -> Outgoing? {
         let types = p.registeredTypeIdentifiers.compactMap(UTType.init)
+        let suggested = p.suggestedName
+        // Files (scripts and other text files included), photos and videos.
+        let fileType = FileKinds.fileType(in: p.registeredTypeIdentifiers, named: suggested?.isEmpty == false)
         // A web link (Safari, most apps): send the link itself.
-        if types.contains(where: { $0.conforms(to: .url) && !$0.conforms(to: .fileURL) }), !types.contains(where: isFileData) {
+        if types.contains(where: { $0.conforms(to: .url) && !$0.conforms(to: .fileURL) }), fileType == nil {
             if let url = await p.loadURL(), !url.isFileURL { return .text(url.absoluteString) }
         }
         // A file, photo or video: its original bytes and name, best type first.
-        if let t = types.first(where: isFileData) {
-            let suggested = p.suggestedName
+        if let t = fileType {
             return await withCheckedContinuation { cont in
                 _ = p.loadFileRepresentation(forTypeIdentifier: t.identifier) { url, _ in
                     guard let url else { return cont.resume(returning: nil) }
@@ -47,11 +49,6 @@ enum ItemReader {
         }
         if let s = await p.loadString(), !s.isEmpty { return .text(s) }
         return nil
-    }
-
-    private static func isFileData(_ t: UTType) -> Bool {
-        (t.conforms(to: .data) || t.conforms(to: .directory)) && !t.conforms(to: .text) && !t.conforms(to: .url)
-            || t.conforms(to: .image) || t.conforms(to: .audiovisualContent) || t.conforms(to: .pdf)
     }
 
     /// The real name with an extension that matches the data ("IMG_0042.HEIC").

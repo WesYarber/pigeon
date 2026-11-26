@@ -26,6 +26,7 @@ targets:
       - App
       - Shared
       - path: ../mac/Sources/Crypto.swift   # the exact encryption the Mac uses
+      - path: ../mac/Sources/FileKinds.swift
         group: Shared
     settings:
       base:
@@ -61,6 +62,7 @@ targets:
       - Share
       - Shared
       - path: ../mac/Sources/Crypto.swift
+      - path: ../mac/Sources/FileKinds.swift
         group: Shared
     settings:
       base:
