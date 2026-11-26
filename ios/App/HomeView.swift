@@ -284,6 +284,10 @@ struct PickedFile: Transferable {
 
 struct SentRow: View {
     let item: SentItem
+    @Environment(\.openURL) private var openURL
+    @State private var copied = false
+
+    private var incoming: Bool { item.received == true }
 
     /// Icon and word kept snug together (a Label spreads them apart in a row).
     private func badge(_ text: String, _ symbol: String) -> some View {
@@ -291,29 +295,84 @@ struct SentRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: item.kind == "file" ? "doc.fill" : "text.alignleft")
-                .foregroundStyle(.tint)
-                .frame(width: 30, height: 30)
-                .background(RoundedRectangle(cornerRadius: 7).fill(Color.accentColor.opacity(0.14)))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.title).lineLimit(1).truncationMode(.middle)
-                HStack(spacing: 4) {
-                    Text("To \(item.to) · \(item.ts.formatted(.relative(presentation: .named)))")
-                    status
+        Button(action: tapped) {
+            HStack(spacing: 12) {
+                Image(systemName: item.kind == "file" ? "doc.fill" : "text.alignleft")
+                    .foregroundStyle(incoming ? Color.green : Color.accentColor)
+                    .frame(width: 30, height: 30)
+                    .background(RoundedRectangle(cornerRadius: 7).fill((incoming ? Color.green : Color.accentColor).opacity(0.14)))
+                    .overlay(alignment: .bottomTrailing) {
+                        Image(systemName: incoming ? "arrow.down.left.circle.fill" : "arrow.up.right.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white, incoming ? Color.green : Color.accentColor)
+                            .offset(x: 4, y: 4)
+                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title).lineLimit(1).truncationMode(.middle).foregroundStyle(.primary)
+                    HStack(spacing: 4) {
+                        Text("\(incoming ? "From" : "To") \(item.to) · \(item.ts.formatted(.relative(presentation: .named)))")
+                        status
+                    }
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
-                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
         }
+        .buttonStyle(.plain)
+        .disabled(!incoming)
+        .contextMenu { if incoming { menu } }
     }
 
     @ViewBuilder private var status: some View {
-        if item.delivered != nil {
+        if incoming {
+            switch item.savedTo {
+            case "photos": badge("In Photos", "photo")
+            case "files": badge("In Files", "folder")
+            case "clipboard": badge(copied ? "Copied again" : "Copied", "doc.on.doc")
+            default: badge("Received", "tray.and.arrow.down")
+            }
+        } else if item.delivered != nil {
             badge("Delivered", "checkmark.circle.fill").foregroundStyle(.green)
         } else if item.undelivered == true {
             badge("Not delivered", "exclamationmark.circle.fill").foregroundStyle(.orange)
         } else if item.relayId != nil, Date().timeIntervalSince(item.ts) > 10 {
             badge("Waiting…", "clock")
         }
+    }
+
+    @ViewBuilder private var menu: some View {
+        if let text = item.text {
+            Button("Copy", systemImage: "doc.on.doc") { copy(text) }
+            ShareLink(item: text)
+        }
+        if let url = fileURL {
+            Button("Show in Files", systemImage: "folder") { openURL(Self.filesAppURL(url)) }
+            ShareLink(item: url)
+        }
+        if item.savedTo == "photos" {
+            Button("Open Photos", systemImage: "photo") { openURL(URL(string: "photos-redirect://")!) }
+        }
+    }
+
+    /// Tapping a received item: copy text again, show the file in Files, or open Photos.
+    private func tapped() {
+        if let text = item.text { copy(text) }
+        else if let url = fileURL { openURL(Self.filesAppURL(url)) }
+        else if item.savedTo == "photos" { openURL(URL(string: "photos-redirect://")!) }
+    }
+
+    private func copy(_ text: String) {
+        UIPasteboard.general.string = text
+        copied = true
+    }
+
+    private var fileURL: URL? {
+        guard let name = item.fileName else { return nil }
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(name)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    /// The Files app opens a file in our folder from a shareddocuments:// link.
+    static func filesAppURL(_ file: URL) -> URL {
+        URL(string: "shareddocuments://" + (file.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.path))!
     }
 }

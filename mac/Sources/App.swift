@@ -646,7 +646,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             fail("The server address must start with https://")
             return setup(prefill: typed)
         }
-        Task { await register(server: url, adminSecret: secret.stringValue, rotate: ReceiverKey.current == nil) }
+        Task { await register(server: url, adminSecret: secret.stringValue.trimmingCharacters(in: .whitespacesAndNewlines), rotate: ReceiverKey.current == nil) }
     }
 
     func register(server: URL, adminSecret: String, rotate: Bool) async {

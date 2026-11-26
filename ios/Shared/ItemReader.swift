@@ -12,7 +12,7 @@ enum ItemReader {
             switch await read(p, into: scratch) {
             case .file(let url, let name)?: files.append(.file(url, name: name))
             case .text(let s)?: if !texts.contains(s) { texts.append(s) }
-            case nil: break
+            case .pair?, nil: break
             }
         }
         // Several text bits (e.g. a page title and its link) go as one message.

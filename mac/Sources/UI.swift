@@ -22,12 +22,10 @@ enum SettingsTab: Hashable { case general, receiving, sending, security }
 
 struct PopoverView: View {
     @ObservedObject var app: AppDelegate
-    @State private var dropTargeted = false
-    @State private var targetInbox: String?
 
-    /// Where the popover's actions send: the picked Mac, or the default.
+    /// Where Send Clipboard goes with a single destination: the default.
     private var target: Destination? {
-        app.destinations.first { $0.inbox == targetInbox } ?? app.destinations.first
+        app.destinations.first
     }
 
     var body: some View {
@@ -39,7 +37,6 @@ struct PopoverView: View {
                 if app.config == nil { receivingOffBanner }
                 ForEach(app.pairRequests) { PairRequestCard(request: $0, app: app) }
                 dropZone
-                actions
             }
             .padding(12)
             if !app.history.entries.isEmpty {
@@ -114,69 +111,30 @@ struct PopoverView: View {
 
     // MARK: Drop zone
 
-    private var dropZone: some View {
-        VStack(spacing: 6) {
-            Image(systemName: dropTargeted ? "arrow.down.doc.fill" : "arrow.up.doc")
-                .font(.system(size: 26))
-                .foregroundStyle(dropTargeted ? Color.accentColor : .secondary)
-            if let target {
-                Text(dropTargeted ? "Release to send" : "Drop files here, or click to choose")
-                    .font(.callout.weight(.medium))
-                targetPicker(target)
-            } else {
-                Text("Add a Mac to send to").font(.callout.weight(.medium))
+    /// One drop tile per destination (your work Mac, your iPhone…), side by side:
+    /// drop onto the one you want, or click it to choose files for it.
+    @ViewBuilder private var dropZone: some View {
+        if app.destinations.isEmpty {
+            VStack(spacing: 6) {
+                Image(systemName: "arrow.up.doc").font(.system(size: 26)).foregroundStyle(.secondary)
+                Text("Add a Mac or iPhone to send to").font(.callout.weight(.medium))
                 Button("Add a Mac…") { app.afterClosingPopover { app.addDestination() } }
                     .controlSize(.small)
             }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .contentShape(RoundedRectangle(cornerRadius: 12))
-        .onTapGesture { if target != nil { app.chooseAndSendFiles(to: target) } }
-        .onHover { inside in if target != nil { inside ? NSCursor.pointingHand.push() : NSCursor.pop() } }
-        .help(target == nil ? "" : "Click to choose files or folders to send")
-        .background(RoundedRectangle(cornerRadius: 12)
-            .fill(dropTargeted ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.035)))
-        .overlay(RoundedRectangle(cornerRadius: 12)
-            .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-            .foregroundStyle(dropTargeted ? Color.accentColor : Color.secondary.opacity(0.35)))
-        .onDrop(of: [.fileURL, .image, .data, .utf8PlainText, .plainText], isTargeted: $dropTargeted) { providers in
-            guard target != nil else { return false }
-            app.sendDropped(providers, to: target)
-            return true
-        }
-        .animation(.easeOut(duration: 0.12), value: dropTargeted)
-    }
-
-    @ViewBuilder
-    private func targetPicker(_ target: Destination) -> some View {
-        if app.destinations.count > 1 {
-            Menu {
-                ForEach(app.destinations) { d in
-                    Button { targetInbox = d.inbox } label: {
-                        if d.inbox == target.inbox { Label(d.name, systemImage: "checkmark") } else { Text(d.name) }
-                    }
-                }
-            } label: {
-                Text("to \(target.name)").font(.caption)
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.035)))
         } else {
-            Text("to \(target.name)").font(.caption).foregroundStyle(.secondary)
+            // Equal columns that fill the width: halves for two, thirds for three;
+            // more than three wrap onto another row.
+            let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: min(app.destinations.count, 3))
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(app.destinations) { DropTile(dest: $0, app: app, wide: app.destinations.count == 1) }
+            }
         }
     }
 
     // MARK: Actions
-
-    private var actions: some View {
-        Button { app.sendClipboard(to: target) } label: {
-            Label("Send Clipboard", systemImage: "doc.on.clipboard").frame(maxWidth: .infinity)
-        }
-        .help(app.shortcut(.sendClipboard).map { "\($0.label) from anywhere" } ?? "")
-        .controlSize(.large)
-        .disabled(target == nil)
-    }
 
     // MARK: Recent
 
@@ -284,6 +242,55 @@ struct StatusLine: View {
         case .offline: return "Offline, retrying…"
         case .off: return app.destinations.isEmpty ? "Not set up" : "Sending only"
         }
+    }
+}
+
+/// A drop target for one destination in the popover.
+struct DropTile: View {
+    let dest: Destination
+    @ObservedObject var app: AppDelegate
+    var wide = false
+    @State private var targeted = false
+
+    var body: some View {
+        VStack(spacing: 8) {
+            // Drop here, or click to choose files.
+            VStack(spacing: 6) {
+                Image(systemName: targeted ? "arrow.down.circle.fill" : dest.symbol)
+                    .font(.system(size: wide ? 26 : 22))
+                    .foregroundStyle(targeted ? Color.accentColor : .secondary)
+                Text(dest.name).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)
+                Text(targeted ? "Release to send" : (wide ? "Drop files here, or click to choose" : "Drop or click"))
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 14)
+            .contentShape(Rectangle())
+            .onTapGesture { app.chooseAndSendFiles(to: dest) }
+            .onHover { inside in inside ? NSCursor.pointingHand.push() : NSCursor.pop() }
+            .help("Drop files, folders or text to send to \(dest.name), or click to choose files")
+
+            Button { app.sendClipboard(to: dest) } label: {
+                Label("Send Clipboard", systemImage: "doc.on.clipboard")
+                    .frame(maxWidth: .infinity)
+            }
+            .controlSize(.regular)
+            .help("Send what's on your clipboard to \(dest.name)"
+                  + (dest == app.destinations.first ? app.shortcut(.sendClipboard).map { " (\($0.label) from anywhere)" } ?? "" : ""))
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
+        }
+        .background(RoundedRectangle(cornerRadius: 12)
+            .fill(targeted ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.035)))
+        .overlay(RoundedRectangle(cornerRadius: 12)
+            .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+            .foregroundStyle(targeted ? Color.accentColor : Color.secondary.opacity(0.35)))
+        .onDrop(of: [.fileURL, .image, .data, .utf8PlainText, .plainText], isTargeted: $targeted) { providers in
+            app.sendDropped(providers, to: dest)
+            return true
+        }
+        .scaleEffect(targeted ? 1.02 : 1)
+        .animation(.easeOut(duration: 0.12), value: targeted)
     }
 }
 
@@ -612,13 +619,13 @@ struct SendingSettings: View {
 
     var body: some View {
         Form {
-            Section("Macs you can send to") {
+            Section("Macs and iPhones you can send to") {
                 if app.destinations.isEmpty {
                     Footnote("None yet. Add one with the link from the other Mac's Pair a Device window.")
                 }
                 ForEach(app.destinations) { d in
                     HStack(spacing: 10) {
-                        Image(systemName: "desktopcomputer").foregroundStyle(.secondary)
+                        Image(systemName: d.symbol).foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
                                 Text(d.name)

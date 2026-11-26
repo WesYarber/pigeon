@@ -1,16 +1,20 @@
 import CryptoKit
 import Foundation
+import UIKit
 import UniformTypeIdentifiers
 
 /// Something to send: text (links are sent as text, like the web page does) or a file.
 enum Outgoing {
     case text(String)
     case file(URL, name: String)
+    /// This iPhone's own pairing link, asking a Mac to send back to it.
+    case pair(String)
 
     var title: String {
         switch self {
         case .text(let s): return String(s.replacingOccurrences(of: "\n", with: " ").prefix(80))
         case .file(_, let name): return name
+        case .pair: return "Pairing request"
         }
     }
 }
@@ -50,6 +54,10 @@ enum Sender {
             header["name"] = name
             header["size"] = body.count
             header["type"] = UTType(filenameExtension: (name as NSString).pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+        case .pair(let link):
+            header["kind"] = "pair"
+            header["device"] = UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone" // the Mac shows the right icon
+            body = Data(link.utf8)
         }
         guard body.count <= relayLimit else { throw SendError.tooLarge(item.title, relayLimit >> 20) }
 
@@ -67,6 +75,7 @@ enum Sender {
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard code == 201 else { throw SendError.server(code, dest.name) }
 
+        if case .pair = item { return } // not something to list in Recent
         let relayId = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["id"] as? String
         log.add(SentItem(kind: header["kind"] as! String, title: item.title, to: dest.name, inbox: dest.inbox, relayId: relayId))
     }

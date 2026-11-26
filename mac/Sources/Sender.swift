@@ -10,8 +10,19 @@ struct Destination: Codable, Equatable {
     var inbox: String
     var sendToken: String
     var pub: Data
+    /// "iphone" / "ipad" for phones and tablets that paired by request; nil for Macs.
+    var kind: String? = nil
 
     var fingerprint: String { ReceiverKey.fingerprint(of: pub) }
+
+    /// SF Symbol for menus, the drop shelf and Settings.
+    var symbol: String {
+        switch kind ?? (name.localizedCaseInsensitiveContains("iphone") ? "iphone" : name.localizedCaseInsensitiveContains("ipad") ? "ipad" : nil) {
+        case "iphone": return "iphone"
+        case "ipad": return "ipad"
+        default: return "desktopcomputer"
+        }
+    }
 
     /// Parses the pairing link another Mac shows: https://host/#p=v1.<inbox>.<token>.<pubkey>
     static func parse(_ link: String, name: String) -> Destination? {
@@ -377,8 +388,9 @@ extension AppDelegate {
     /// Another Mac (which already holds our send token) offered its own link.
     /// Nothing is added until the user approves it in the popover.
     func receivePairRequest(_ p: Payload) {
-        guard let dest = Destination.parse(String(decoding: p.body, as: UTF8.self), name: String(p.from.prefix(40))),
+        guard var dest = Destination.parse(String(decoding: p.body, as: UTF8.self), name: String(p.from.prefix(40))),
               dest.inbox != config?.inbox else { return }
+        dest.kind = p.device
         let existing = destinations.first { $0.inbox == dest.inbox }
         if let existing, existing.pub == dest.pub, existing.sendToken == dest.sendToken { return } // nothing new
         // A changed key for a known Mac also needs approval: never swap keys silently.

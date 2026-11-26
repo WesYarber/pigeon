@@ -35,11 +35,18 @@ targets:
     info:
       path: App/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)   # release.sh sets this to the git commit count
         CFBundleDisplayName: Pigeon
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         NSCameraUsageDescription: Pigeon uses the camera to scan the pairing QR code your Mac shows.
+        NSPhotoLibraryAddUsageDescription: Pigeon adds photos and videos your Macs send to this iPhone to your library.
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [net.wesyarber.pigeon.ios.refresh]
+        UIFileSharingEnabled: true                 # received files appear in Files → On My iPhone → Pigeon
+        LSSupportsOpeningDocumentsInPlace: true
     entitlements:
       path: App/Pigeon.entitlements
       properties:
@@ -62,6 +69,8 @@ targets:
     info:
       path: Share/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)   # release.sh sets this to the git commit count
         CFBundleDisplayName: Pigeon
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services

@@ -312,7 +312,7 @@ private struct ShelfTile: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Image(systemName: targeted ? "arrow.down.circle.fill" : "desktopcomputer")
+            Image(systemName: targeted ? "arrow.down.circle.fill" : dest.symbol)
                 .font(.system(size: 22))
                 .foregroundStyle(targeted ? Color.accentColor : .secondary)
             Text(dest.name).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)

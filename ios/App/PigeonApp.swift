@@ -8,8 +8,20 @@ struct PigeonApp: App {
     var body: some Scene {
         WindowGroup {
             HomeView(model: model)
-                .onChange(of: phase) { _, now in if now == .active { model.becameActive() } }
+                .onChange(of: phase) { _, now in
+                    switch now {
+                    case .active:
+                        model.becameActive()
+                        Receiver.shared.start()
+                    case .background:
+                        Receiver.shared.stop()
+                        Receiver.shared.scheduleBackgroundCheck()
+                    default: break
+                    }
+                }
         }
+        // iOS wakes Pigeon now and then to check for things sent to this iPhone.
+        .backgroundTask(.appRefresh(Receiver.refreshTask)) { await Receiver.shared.backgroundCheck() }
     }
 }
 
@@ -31,6 +43,11 @@ final class AppModel: ObservableObject {
     private var demoInstalled = false
 
     func becameActive() {
+        Receiver.shared.onReceive = { [weak self] text in
+            self?.log.reload() // the receiver wrote the entry; show it in Recent
+            self?.objectWillChange.send()
+            self?.flash(text)
+        }
         macs.reload()
         log.reload()
         #if DEBUG

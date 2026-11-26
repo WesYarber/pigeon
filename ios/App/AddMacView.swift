@@ -125,6 +125,11 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @State private var deviceName = Settings.deviceName
     @State private var showTip = false
+    @ObservedObject private var receiver = Receiver.shared
+    @State private var settingUpReceiving = false
+    @State private var confirmingTurnOff = false
+    @State private var addToPhotos = ReceiveSettings.addMediaToPhotos
+    @State private var copyText = ReceiveSettings.copyText
     @State private var adding = false
 
     init(model: AppModel) {
@@ -150,6 +155,7 @@ struct SettingsView: View {
                          ? "Tap a Mac to rename or remove it. Touch and hold to drag them into order; the top one is your default."
                          : "Tap a Mac to rename or remove it.")
                 }
+                receiveSection
                 Section {
                     TextField("iPhone", text: $deviceName)
                         .onChange(of: deviceName) { _, v in Settings.deviceName = v }
@@ -191,7 +197,131 @@ struct SettingsView: View {
             .navigationDestination(for: String.self) { inbox in MacDetailView(macs: macs, inbox: inbox) }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(isPresented: $adding) { AddMacView(macs: macs) { adding = false } }
+            .sheet(isPresented: $settingUpReceiving) { ReceiveSetupView(macs: macs) { settingUpReceiving = false } }
+            .confirmationDialog("Turn off receiving?", isPresented: $confirmingTurnOff, titleVisibility: .visible) {
+                Button("Turn Off", role: .destructive) { receiver.turnOff() }
+            } message: {
+                Text("This iPhone forgets its key and inbox. Remove it from your Macs too (Settings → Sending).")
+            }
         }
+    }
+
+    @ViewBuilder private var receiveSection: some View {
+        Section {
+            if receiver.isOn {
+                LabeledContent("Status") {
+                    switch receiver.status {
+                    case .connected: Label("Receiving", systemImage: "circle.fill").foregroundStyle(.green)
+                    case .connecting: Text("Connecting…")
+                    case .offline: Label("Offline, retrying", systemImage: "circle.fill").foregroundStyle(.orange)
+                    case .off: Text("Off")
+                    }
+                }
+                .labelStyle(.titleOnly)
+                Toggle("Add photos and videos to Photos", isOn: $addToPhotos)
+                    .onChange(of: addToPhotos) { _, v in ReceiveSettings.addMediaToPhotos = v }
+                Toggle("Copy received text to the clipboard", isOn: $copyText)
+                    .onChange(of: copyText) { _, v in ReceiveSettings.copyText = v }
+                Button("Ask My Macs to Send Here") { Task { await receiver.askToPair(macs.list); model.flash("Approve the request in each Mac's Pigeon popover") } }
+                NavigationLink("This iPhone's Pairing Link") { PairingLinkView() }
+                Button("Turn Off Receiving", role: .destructive) { confirmingTurnOff = true }
+            } else {
+                Button("Turn On Receiving…") { settingUpReceiving = true }
+            }
+        } header: {
+            Text("Receive on This iPhone")
+        } footer: {
+            Text(receiver.isOn
+                 ? "Your Macs list this iPhone once you approve its request in their Pigeon popover. Things arrive right away while Pigeon is open; otherwise iOS checks from time to time and shows a notification. Files go to Files → On My iPhone → Pigeon."
+                 : "Let your Macs send files, photos and text to this iPhone too. You'll need your relay's admin secret once.")
+        }
+    }
+}
+
+/// Turn on receiving: create this iPhone's key and inbox on your relay.
+struct ReceiveSetupView: View {
+    @ObservedObject var macs: Macs
+    var done: () -> Void
+    @State private var server = ""
+    @State private var secret = ""
+    @State private var working = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("https://relay.example.com", text: $server)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                    SecureField("Admin secret", text: $secret)
+                } footer: {
+                    Text("The admin secret (RELAY_ADMIN_SECRET on your server) is used once to create this iPhone's inbox and isn't stored. Then each of your Macs gets a request to send here.")
+                }
+                if let error { Text(error).foregroundStyle(.orange) }
+                Section {
+                    Button {
+                        Task { await turnOn() }
+                    } label: {
+                        if working { ProgressView() } else { Text("Turn On Receiving").bold() }
+                    }
+                    .disabled(working || secret.isEmpty || URL(string: server)?.scheme != "https")
+                }
+            }
+            .navigationTitle("Receive on This iPhone")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: done) } }
+            .onAppear { if server.isEmpty { server = macs.list.first?.server.absoluteString ?? "" } }
+        }
+    }
+
+    private func turnOn() async {
+        // Pasted values often carry a stray space or line break (e.g. copied from Terminal).
+        guard let url = URL(string: server.trimmingCharacters(in: .whitespacesAndNewlines)) else { return }
+        working = true
+        error = nil
+        defer { working = false }
+        do {
+            try await Receiver.shared.turnOn(server: url, adminSecret: secret.trimmingCharacters(in: .whitespacesAndNewlines), macs: macs.list)
+            done()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+}
+
+/// This iPhone's pairing link and QR code, for adding it on a Mac by hand.
+struct PairingLinkView: View {
+    @ObservedObject private var receiver = Receiver.shared
+    @State private var copied = false
+
+    var body: some View {
+        Form {
+            if let link = receiver.pairingLink {
+                Section {
+                    if let qr = Self.qr(link) {
+                        Image(uiImage: qr).interpolation(.none).resizable().scaledToFit()
+                            .frame(maxWidth: 260).frame(maxWidth: .infinity)
+                    }
+                    LabeledContent("Fingerprint") { Text(receiver.fingerprint ?? "").font(.body.monospaced()) }
+                } footer: {
+                    Text("On a Mac: click the pigeon → … → Add a Mac to Send To, and paste this link. Anyone with it can send to this iPhone, so keep it to your own devices.")
+                }
+                Section {
+                    Button(copied ? "Copied" : "Copy Link") { UIPasteboard.general.string = link; copied = true }
+                }
+            }
+        }
+        .navigationTitle("Pairing Link")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    static func qr(_ text: String) -> UIImage? {
+        guard let f = CIFilter(name: "CIQRCodeGenerator") else { return nil }
+        f.setValue(Data(text.utf8), forKey: "inputMessage")
+        f.setValue("M", forKey: "inputCorrectionLevel")
+        guard let out = f.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)),
+              let cg = CIContext().createCGImage(out, from: out.extent) else { return nil }
+        return UIImage(cgImage: cg)
     }
 }
 

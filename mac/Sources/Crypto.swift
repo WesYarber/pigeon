@@ -82,6 +82,8 @@ struct Payload {
     let sentAt: Date
     let name: String?
     let mimeType: String?
+    /// For pairing requests: what's asking ("iphone", "ipad"; nil for a Mac).
+    var device: String? = nil
     let body: Data
 }
 
@@ -136,6 +138,7 @@ enum Envelope {
         let from = String((h["from"] as? String ?? "Unknown").prefix(40))
         return Payload(kind: kind, from: from, sentAt: ts,
                        name: h["name"] as? String, mimeType: h["type"] as? String,
+                       device: (h["device"] as? String).map { String($0.prefix(20)) },
                        body: pt.subdata(in: (4 + hlen)..<pt.count))
     }
 }

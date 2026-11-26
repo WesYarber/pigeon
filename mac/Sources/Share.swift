@@ -79,7 +79,7 @@ extension AppDelegate {
                                     action: #selector(MenuAction.fire), keyEquivalent: i == 0 ? "\r" : "")
             item.keyEquivalentModifierMask = []
             item.target = a
-            item.image = NSImage(systemSymbolName: "desktopcomputer", accessibilityDescription: nil)
+            item.image = NSImage(systemSymbolName: d.symbol, accessibilityDescription: nil)
         }
         menu.addItem(.separator())
         menu.addItem(withTitle: "Cancel", action: nil, keyEquivalent: "").isEnabled = true

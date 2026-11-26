@@ -41,6 +41,12 @@ enum Keychain {
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         SecItemAdd(add as CFDictionary, nil)
     }
+
+    static func delete(_ account: String) {
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                kSecAttrAccount as String: account]
+        SecItemDelete(q as CFDictionary)
+    }
 }
 
 // MARK: - Paired Macs
@@ -135,6 +141,11 @@ struct SentItem: Codable, Identifiable, Equatable {
     var relayId: String?
     var delivered: Date?
     var undelivered: Bool?
+    // Things this iPhone received (then `to` holds who it's from):
+    var received: Bool? = nil
+    var savedTo: String? = nil  // "photos" | "files" | "clipboard" | "none"
+    var fileName: String? = nil // in Documents (Files → On My iPhone → Pigeon)
+    var text: String? = nil     // received text, so it can be copied again
 }
 
 /// What this phone has sent, newest first. A small JSON file in the app group,
