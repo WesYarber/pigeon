@@ -7,7 +7,7 @@ Everything to paste into App Store Connect. Upload builds with `ios/release.sh`.
 | Field | Value |
 | --- | --- |
 | Name (30 max) | Pigeon: Encrypted File Drop |
-| Subtitle (30 max) | Send files to your own Macs |
+| Subtitle (30 max) | Files between iPhone and Mac |
 | Bundle ID | net.wesyarber.pigeon.ios |
 | SKU | pigeon-ios |
 | Primary category | Utilities |
@@ -20,16 +20,18 @@ Everything to paste into App Store Connect. Upload builds with `ios/release.sh`.
 
 ## Promotional text (170 max)
 
-Share any file, photo or link from your iPhone straight to your Mac, end-to-end encrypted, through a relay you host. No accounts, no cloud, no tracking.
+Send any file, photo or link between your iPhone and your Macs, end-to-end encrypted, through a relay you host. No accounts, no cloud, no tracking.
 
 ## Description
 
-Pigeon sends files, photos, links and text from your iPhone or iPad to your own Macs, end-to-end encrypted.
+Pigeon sends files, photos, links and text between your iPhone or iPad and your own Macs, end-to-end encrypted, in both directions.
 
 Pick Pigeon in any app's Share sheet and it's on its way: photos keep their original format and name, links arrive ready to open, and text lands on your Mac's clipboard. With one Mac it sends right away; with several, pick which one.
 
+Turn on receiving and your Macs can send back: drop a file on your iPhone's tile in the Mac menu bar and it lands in the Files app, photos and videos go straight to Photos, and text is copied to your iPhone's clipboard.
+
 PRIVATE BY DESIGN
-• Everything is encrypted on your iPhone to your Mac's key (P-256, AES-256-GCM, a fresh key for every item). Only your Mac can read it.
+• Everything is encrypted on the sending device to the receiving device's key (P-256, AES-256-GCM, a fresh key for every item). Only that device can read it.
 • It travels through a small relay that you host yourself, on a home server, NAS or VPS. There is no Pigeon cloud, no account, and no tracking.
 • Pair by scanning a QR code on your Mac and checking its fingerprint.
 
@@ -37,6 +39,7 @@ MADE FOR SENDING
 • Share sheet support for files, photos, videos, links and text
 • Photos & Videos, Files and Paste buttons in the app
 • See when each item is delivered, even if your Mac was asleep
+• Receive from your Macs, with a notification when something arrives
 • On an unfolded iPhone Duo or iPad: a two-pane layout and drag and drop from other apps
 
 REQUIREMENTS
@@ -44,7 +47,7 @@ Pigeon needs its free companion Mac app and a relay you host. Their source and s
 
 ## Keywords (100 max)
 
-send,transfer,share,file,files,mac,encrypted,private,relay,self-hosted,clipboard,photos,e2e,drop
+send,transfer,share,file,files,mac,encrypted,private,relay,self-hosted,clipboard,photos,e2e,receive
 
 ## What's new (first version)
 
@@ -75,6 +78,8 @@ Pigeon sends files from iPhone to the user's own Mac through a relay server the 
 2. Paste this pairing link (or tap Paste after copying it): <PASTE THE REVIEW PROFILE'S PAIRING LINK HERE: Mac → review pigeon → … → Pair a Device → Copy Link>
 3. Tap Add Mac. The app now shows Send buttons.
 4. Send a photo, file or text from the app, or from any app's Share sheet (choose Pigeon). It's encrypted and uploaded to the demo inbox; Recent shows the item, and "Delivered" once our test Mac picks it up.
+
+Receiving on iPhone (Settings → Receive on This iPhone) creates an inbox on the user's own relay and needs that relay's admin secret, so it can't be tried with the demo inbox. It downloads items the user's Macs send, saves files to Pigeon's folder in Files, adds photos and videos to Photos (add-only permission), copies text to the clipboard, and uses background app refresh and notifications only to check the user's relay and announce arrivals.
 
 The camera is used only to scan a pairing QR code from the Mac app; pasting the link works instead. The companion Mac app and relay are documented at https://github.com/WesYarber/pigeon. The "Leave a Tip" link in Settings appears only on the US storefront.
 
