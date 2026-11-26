@@ -38,6 +38,7 @@ targets:
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)   # release.sh sets this to the git commit count
+        ITSAppUsesNonExemptEncryption: false   # only Apple's built-in CryptoKit; see AppStore.md
         CFBundleDisplayName: Pigeon
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]

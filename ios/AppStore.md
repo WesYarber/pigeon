@@ -57,14 +57,9 @@ First release.
 
 **Data Not Collected.** The developer collects nothing: no analytics, accounts, tracking or developer-run servers. Items go, encrypted, to the user's own relay and Macs.
 
-## Export compliance (asked for each build)
+## Export compliance
 
-The app's Info.plist deliberately has no `ITSAppUsesNonExemptEncryption` key: declaring `true` there requires an export compliance code that App Store Connect only issues after documentation is approved, so the upload is rejected without one. Instead, answer these questions in App Store Connect when each build arrives (TestFlight → the build → Manage):
-
-* Does your app use encryption? **Yes**
-* Does it qualify for any exemptions in Category 5, Part 2? **No** (it encrypts user data end to end)
-* Does it implement proprietary or non-standard encryption algorithms? **No.** It uses standard algorithms (ECDH P-256, HKDF-SHA256, AES-256-GCM) through Apple's CryptoKit.
-* Result: no documents to upload. US export rules (EAR 740.17(b)(1)) expect an annual self-classification report to BIS for mass-market encryption items. Check the current requirements, and whether distributing in France needs a declaration.
+Pigeon only uses the encryption built into Apple's operating system (CryptoKit: ECDH P-256, HKDF-SHA256, AES-256-GCM), with no proprietary or bundled algorithms. In App Store Connect's App Encryption Documentation question that is **"None of the algorithms mentioned above"**, which needs no documents. The app's Info.plist says so with `ITSAppUsesNonExemptEncryption = false`, so new builds skip the question. (Setting it to `true` instead requires an export compliance code and gets uploads rejected.)
 
 ## Age rating
 
